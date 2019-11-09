@@ -7,27 +7,30 @@ import shutil
 from pathlib import Path
 
 
+# TODO: Change the location of these defaults, and allow them to be more easily changed.
+# Perhaps go object-oriented with it, take command line args, 
+# or simply provide these as default values for named parameters in a function call.
 USGS_BASE_URL = 'https://eros.usgs.gov'
 EAA_BASE_URL = USGS_BASE_URL + '/image-gallery/earth-art'
 COLLECTIONS = [1, 2, 3, 4, 5, 6]
 OUTPUT_DIRECTORY = Path("./EarthAsArt")
 
 def collection_url(collection_number):
+    """ Determine the url of the given collection"""
     return EAA_BASE_URL + '-' + str(collection_number)
 
-def image_url(collection_url, image_title):
-    return collection_url + '/' + image_title
-
 def download_page(url):
+    """ Request a page, then return a BeautifulSoup object of that page """
     res = requests.get(url)
     res.raise_for_status()
     resSoup = bs4.BeautifulSoup(res.text, features="html.parser")
     return resSoup
 
 def access_collection(col_num):
-    # TODO: I think the results are paginated, so... scroll down? request them all? idk
-    # ALTERNATIVE:
-    # Navigate to the first image in the collection,
+    """ Get a list of the image landing page url's for a given collection """
+    # TODO: The results are paginated, so... scroll down? request them all? idk.
+    # High priority, because right now we do NOT download "all" the images.
+    # ALTERNATIVE: Navigate to the first image in the collection,
     # then get the download link and hit "next" all the way through the collection
     print(f"Accessing collection {col_num}...")
 
@@ -38,12 +41,14 @@ def access_collection(col_num):
     return img_urls
 
 def access_image(url):
+    """ Find the download page url on the landing page of an image """
     imgSoup = download_page(url)
     button = imgSoup.select_one('.btn-hallow')
     url = button.get('href')
     return url
 
 def download_image_zip(url):
+    """ Download the zip file for an image and return teh path to the zip """
     usgsSoup = download_page(url)
     button = usgsSoup.select_one('input[type="button"]')
     download_url = button.get('onclick') # this url is prepended with "window.location='"
@@ -63,6 +68,7 @@ def download_image_zip(url):
     return zip_path
 
 def unzip_image(zip_path):
+    """ Unzip to the output dir, then delete the zip. """
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         img_name = zip_path.stem
         print(f"        Unzipping {img_name}")
@@ -71,16 +77,18 @@ def unzip_image(zip_path):
     os.remove(zip_path)
 
 def fix_collection_4():
-    # EAA4 is a little wonky. Lets handle that.
+    """ EAA4 is a little wonky. Lets handle that. """
     print("Fixing collection 4 location...")
     source = OUTPUT_DIRECTORY / "EAA4_Final_JPGS"
     files = list(source.glob('*'))
     for f in files:
         f.rename(OUTPUT_DIRECTORY / f.name)
+        print(f"    {f.stem} moved")
     
     source.rmdir()
 
 def download_all():
+    """ Download the complete collection of images """
     # access each collection
     OUTPUT_DIRECTORY.mkdir()
     for col_num in COLLECTIONS:
