@@ -27,7 +27,7 @@ def download_page(url):
     return resSoup
 
 def access_collection(col_num):
-    """ Get a list of the image landing page url's for a given collection """
+    """ Get a list of the image landing page URLs for a given collection """
     # TODO: The results are paginated, so... scroll down? request them all? idk.
     # High priority, because right now we do NOT download "all" the images.
     # ALTERNATIVE: Navigate to the first image in the collection,
