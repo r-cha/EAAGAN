@@ -3,6 +3,8 @@ import requests
 import bs4
 import zipfile
 import shutil
+import cv2
+import numpy as np
 
 from pathlib import Path
 
@@ -14,6 +16,7 @@ USGS_BASE_URL = 'https://eros.usgs.gov'
 EAA_BASE_URL = USGS_BASE_URL + '/image-gallery/earth-art'
 COLLECTIONS = [1, 2, 3, 4, 5, 6]
 OUTPUT_DIRECTORY = Path("./EarthAsArt")
+OUTPUT_DIMENSIONS = (512, 512)
 
 def collection_url(collection_number):
     """ Determine the url of the given collection"""
@@ -71,9 +74,9 @@ def unzip_image(zip_path):
     """ Unzip to the output dir, then delete the zip. """
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         img_name = zip_path.stem
-        print(f"        Unzipping {img_name}")
+        print(f"      Unzipping {img_name}")
         zip_ref.extractall(OUTPUT_DIRECTORY)
-        print(f"        Cleaning {img_name}")
+        print(f"      Cleaning {img_name}")
     os.remove(zip_path)
 
 def fix_collection_4():
@@ -101,5 +104,54 @@ def download_all():
             unzip_image(local_zip_loc)
     fix_collection_4()
 
+def crop_and_resize(img_file, keep_fullsize=False):
+    """
+    Crop each image to the region of interest, then resize.
+    Source: https://stackoverflow.com/a/13539194
+    """
+    img_name = img_file.name
+    print(f"    Processing image {img_name}")
+    # load image
+    img = cv2.imread(str(img_file))
+
+    # calculate image contours
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _,thresh = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # find the largest contour area
+    largest_contour = max([(cv2.contourArea(cnt), cnt) for cnt in contours], key=lambda x: x[0])[1]
+
+    # crop to (a square of) that area
+    print("      Cropping")
+    x,y,w,h = cv2.boundingRect(largest_contour)
+    if w != h:
+        min_dim = min(w, h)
+        w, h = min_dim, min_dim
+    cropped = img[y:y+h,x:x+w]
+
+    if keep_fullsize:
+        # save full sized cropped image
+        fullsize_dir = OUTPUT_DIRECTORY / "fullsize"
+        fullsize_dir.mkdir()
+        print(f'     Saving {str(full_size_dir / img_name)}')
+        cv2.imwrite(str(OUTPUT_DIRECTORY / "fullsize" / img_name), cropped)
+
+    # resize image
+    print("      Resizing")
+    resized = cv2.resize(cropped, OUTPUT_DIMENSIONS, interpolation=cv2.INTER_AREA)
+
+    # save image
+    cv2.imwrite(str(img_file), resized)
+
+def process_all():
+    """ Crop all images in the output directory to squares and resize to 512x512. """
+    print("Processing images...")
+    source = OUTPUT_DIRECTORY
+    images = list(source.glob('*.jpg'))
+    for img in images:
+        crop_and_resize(img)
+
 if __name__=="__main__":
     download_all()
+    process_all()
