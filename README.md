@@ -16,10 +16,9 @@ If you are missing any modules, `pip install -r requirements.txt`.
 
 - Parameterize download script
 - Download entire collections
-- Crop images to squares
 - Use StyleGAN
-  - Investigate GPU compute options
-  - Budget it all out
+  - Test locally (GTX 1080 FE)
+  - Run in cloud (Google Compute Engine w/ Tesla P100 @ ~1.50/hr)
 - Make a website for displaying results
   - Squarespace?
   - Personal site?
